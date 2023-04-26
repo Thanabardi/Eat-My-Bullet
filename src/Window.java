@@ -11,14 +11,14 @@ import java.util.Observer;
 
 public class Window extends JFrame implements Observer {
 
-    private int size = 800;
-    private long delayed = 40; // game update delay
-    private World world;
     private Renderer renderer;
     private Gui gui;
+    private World world;
+    private int size = 800; // window size
     private int worldSize = 22;
+    private long delayed = 40; // game update delay
 
-    private List<Integer> keyCode = new ArrayList<Integer>();
+    private List<Integer> keyCode = new ArrayList<Integer>(); // storing keystroke
     private List<Integer> keyList = List.of(KeyEvent.VK_W, KeyEvent.VK_S, KeyEvent.VK_A, KeyEvent.VK_D,
             KeyEvent.VK_SPACE);
 
@@ -48,13 +48,13 @@ public class Window extends JFrame implements Observer {
                     "Replay?",
                     "Game Over",
                     JOptionPane.INFORMATION_MESSAGE);
+            keyCode.clear();
             world = new World(worldSize);
             world.addObserver(this);
             addKeyListener(new KeyController());
             gui.startButton.setEnabled(true);
             // gui.pvpButton.setEnabled(true);
             repaint();
-
         }
         waitFor(delayed);
     }
@@ -123,13 +123,13 @@ public class Window extends JFrame implements Observer {
             // sManiacT2
             sManiacT2N = new ImageIcon("sprite/sManiacT2/sManiacT2N.png").getImage();
             sManiacT2NE = new ImageIcon("sprite/sManiacT2/sManiacT2NE.png").getImage();
-
         }
 
         @Override
         public void paint(Graphics g) {
             super.paint(g);
             paintGrids(g);
+            // WObject
             paintPlayerBullets(g);
             paintEnemyBullets(g);
             paintItems(g);
@@ -139,8 +139,8 @@ public class Window extends JFrame implements Observer {
             paintSManiacT2(g);
             paintPlayer(g);
             paintDeadlyTie(g);
-
-            paintImmortal(g);
+            // GUI
+            paintPlayerImmortal(g);
             paintPlayerLife(g);
             paintScore(g);
             paintTimer(g);
@@ -340,7 +340,7 @@ public class Window extends JFrame implements Observer {
             }
         }
 
-        private void paintImmortal(Graphics g) {
+        private void paintPlayerImmortal(Graphics g) {
             int playerImmuneTime = world.getPlayerImmuneTime();
             g.setColor(Color.white);
             if (!world.isGameOver() && playerImmuneTime > 0) {
@@ -376,7 +376,6 @@ public class Window extends JFrame implements Observer {
     class Gui extends JPanel {
 
         private JButton startButton;
-        // private JButton pvpButton;
 
         public Gui() {
             setLayout(new FlowLayout());

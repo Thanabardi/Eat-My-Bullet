@@ -1,14 +1,17 @@
 import java.util.Observable;
+import java.lang.Math;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class World extends Observable {
-    private int tick;
-    private int size;
-    private boolean notOver;
     private Thread thread;
+    private int size;
+    private int tick;
+    private Random random;
+    private boolean isOver;
 
+    private Player player;
     private int playerLife;
 
     private int cTrooperCount;
@@ -26,11 +29,10 @@ public class World extends Observable {
     private int deadlyTieCount;
     private int deadlyTieLife;
 
+    private BulletPool bulletPool;
     private List<Bullet> playerBullets;
     private List<Bullet> enemyBullets;
-    private BulletPool bulletPool;
 
-    private Player player;
     private List<Enemy> cTroopers = new ArrayList<Enemy>();
     private List<Enemy> sTroopers = new ArrayList<Enemy>();
     private List<Enemy> sManiacs = new ArrayList<Enemy>();
@@ -40,57 +42,100 @@ public class World extends Observable {
 
     private List<DeadlyTie> deadlyTies = new ArrayList<DeadlyTie>();
 
-    private int playerImmuneTime;
     private int immuneAfterHit;
+    private int itemDropRate;
+    private int playerImmuneTime;
     private int itemImmuneTime;
     private int score;
     private long startTime;
     private long elapsedTime;
 
-    private int itemDropRate;
+    public World(int worldSize) {
+        playerLife = Config.initPlayerLife;
 
-    public World(int size) {
-        Config config = new Config();
+        cTrooperCount = Config.initCTrooperCount;
+        cTrooperLife = Config.initCTrooperLife;
 
-        playerLife = config.initPlayerLife;
+        sTrooperCount = Config.initSTrooperCount;
+        sTrooperLife = Config.initSTrooperLife;
 
-        cTrooperCount = config.initCTrooperCount;
-        cTrooperLife = config.initCTrooperLife;
+        sManiacCount = Config.initSManiacCount;
+        sManiacLife = Config.initSManiacLife;
 
-        sTrooperCount = config.initSTrooperCount;
-        sTrooperLife = config.initSTrooperLife;
+        sManiacT2Count = Config.initSManiacT2Count;
+        sManiacT2Life = Config.initSManiacT2Life;
 
-        sManiacCount = config.initSManiacCount;
-        sManiacLife = config.initSManiacLife;
+        deadlyTieCount = Config.initDeadlyTieCount;
+        deadlyTieLife = Config.initDeadlyTieLife;
 
-        sManiacT2Count = config.initSManiacT2Count;
-        sManiacT2Life = config.initSManiacT2Life;
+        immuneAfterHit = Config.immuneAfterHit;
+        itemImmuneTime = Config.itemImmuneTime;
+        itemDropRate = Config.itemDropRate;
 
-        deadlyTieCount = config.initDeadlyTieCount;
-        deadlyTieLife = config.initDeadlyTieLife;
+        size = worldSize;
 
-        immuneAfterHit = config.immuneAfterHit;
-        itemImmuneTime = config.itemImmuneTime;
-        itemDropRate = config.itemDropRate;
-        this.size = size;
-
-        player = new Player(size / 2, size / 2);
         bulletPool = new BulletPool();
         playerBullets = new ArrayList<Bullet>();
         enemyBullets = new ArrayList<Bullet>();
-
         items = new ArrayList<Item>();
 
-        createDeadlyTie(deadlyTieCount);
+        player = new Player(size / 2, (int) Math.round(size / 1.5));
+    }
 
+    public void startGame() { // start game
+        startTime = System.currentTimeMillis();
+        random = new Random();
+        score = 0;
+        playerImmuneTime = 0;
+        tick = 0;
+        isOver = false;
+
+        player.setObject(size / 2, (int) Math.round(size / 1.5), 0, 0, playerLife);
+        createDeadlyTie(deadlyTieCount);
         createEnemy(cTroopers, cTrooperCount, cTrooperLife);
         createEnemy(sTroopers, sTrooperCount, sTrooperLife);
         createEnemy(sManiacs, sManiacCount, sManiacLife);
         createEnemy(sManiacT2s, sManiacT2Count, sManiacT2Life);
+        thread = new Thread() {
+            @Override
+            public void run() {
+                while (!isOver) {
+                    tick++;
+                    elapsedTime = System.currentTimeMillis() - startTime;
+                    moveBullets(playerBullets, 1); // move player bullets
+                    moveBullets(enemyBullets, 20); // move enemy bullets
+
+                    BulletHitEnemy(cTroopers);
+                    BulletHitEnemy(sTroopers);
+                    BulletHitEnemy(sManiacs);
+                    BulletHitEnemy(sManiacT2s);
+                    BulletHitDeadlyTie(deadlyTies);
+                    BulletHit(); // check bullet hit
+
+                    movePlayer(player, 4);
+                    touchDeadlyTie();
+
+                    moveEnemyFollow(cTroopers, 20, 2);
+                    bustEnemyBullets(cTroopers, 1, 40, 6); // bust cTroopers bullets
+                    bustEnemyBullets(sTroopers, 4, 40, 5); // bust cTroopers bullets
+                    moveEnemyRandom(sManiacs, 20, 2);
+                    bustEnemyBullets(sManiacs, 2, 40, 4); // bust cTroopers bullets
+                    moveEnemyRandom(sManiacT2s, 20, 2);
+                    bustEnemyBullets(sManiacT2s, 4, 40, 3); // bust cTroopers bullets
+
+                    collectItem();
+                    updatePlayerStatus();
+                    addEnemy(50);
+                    reducePoolSize();
+                    setChanged();
+                    notifyObservers();
+                }
+            }
+        };
+        thread.start();
     }
 
     private void createDeadlyTie(int countTie) {
-        Random random = new Random();
         int x;
         int y;
         for (int i = 0; i < countTie; i++) {
@@ -107,7 +152,6 @@ public class World extends Observable {
     }
 
     private void createEnemy(List<Enemy> enemyList, int countEnemy, int enemyLife) {
-        Random random = new Random();
         int x;
         int y;
         for (int i = 0; i < countEnemy; i++) {
@@ -123,51 +167,8 @@ public class World extends Observable {
         }
     }
 
-    public void startGame() { // start game
-        startTime = System.currentTimeMillis();
-        score = 0;
-        player.setObject(size / 2, size / 2, 0, 0, playerLife);
-        playerImmuneTime = 0;
-        tick = 0;
-        notOver = true;
-        thread = new Thread() {
-            @Override
-            public void run() {
-                while (notOver) {
-                    tick++;
-                    elapsedTime = System.currentTimeMillis() - startTime;
-                    moveBullets(playerBullets, 1); // move player bullets
-                    moveBullets(enemyBullets, 20); // move enemy bullets
-                    BulletHit();
-                    updateBulletDirection(player);
-                    movePlayer(player, 4);
-                    touchDeadlyTie();
-
-                    moveEnemyFollow(cTroopers, 20, 2);
-                    bustEnemyBullets(cTroopers, 1, 40, 5); // bust cTroopers bullets
-
-                    bustEnemyBullets(sTroopers, 4, 40, 5); // bust cTroopers bullets
-
-                    moveEnemyRandom(sManiacs, 20, 2);
-                    bustEnemyBullets(sManiacs, 2, 40, 5); // bust cTroopers bullets
-
-                    moveEnemyRandom(sManiacT2s, 20, 2);
-                    bustEnemyBullets(sManiacT2s, 4, 40, 5); // bust cTroopers bullets
-                    collectItem();
-                    updatePlayerStatus();
-                    reducePoolSize();
-                    addEnemy(50);
-                    setChanged();
-                    notifyObservers();
-                }
-            }
-        };
-        thread.start();
-    }
-
     private void addEnemy(int interval) {
         if (tick % interval == 0) {
-            Random random = new Random();
             int randomNum = random.nextInt(10);
             if (randomNum < 1) { // 10%
                 createEnemy(sManiacT2s, 1, sManiacT2Life);
@@ -187,7 +188,7 @@ public class World extends Observable {
         if (tick % delayed == 0) {
             if (collideCheck(p.getX() + p.getdX(), p.getY() + p.getdY())) {
                 p.move();
-
+                updateBulletDirection(player);
             }
             p.reset();
         }
@@ -200,7 +201,6 @@ public class World extends Observable {
             for (Enemy enemy : enemyList) {
                 int enemyX = enemy.getX();
                 int enemyY = enemy.getY();
-                boolean move = true;
                 if (enemyX < playerX - offset && enemyY < playerY - offset) {
                     enemy.turnSouthEast();
                 } else if (enemyX < playerX - offset && enemyY > playerY + offset) {
@@ -218,14 +218,12 @@ public class World extends Observable {
                 } else if (enemyX < playerX - offset && enemyY == playerY) {
                     enemy.turnEast();
                 }
-                if (collideCheck(enemyX + enemy.getdX(), enemyY + enemy.getdY())) { // collide deadlyTie and map border
-                    if (move) {
-                        enemy.move();
-                        updateBulletDirection(enemy);
-                        enemy.reset();
-                    }
-
+                // collide deadlyTie and map border
+                if (collideCheck(enemyX + enemy.getdX(), enemyY + enemy.getdY())) {
+                    enemy.move();
+                    updateBulletDirection(enemy); 
                 }
+                enemy.reset();
             }
         }
     }
@@ -233,7 +231,6 @@ public class World extends Observable {
     private void moveEnemyRandom(List<Enemy> enemyList, int moveDelayed, int offset) {
         if (tick % moveDelayed == 0) {
             for (Enemy enemy : enemyList) {
-                Random random = new Random();
                 switch (random.nextInt(8)) {
                     case 0:
                         enemy.turnNorth();
@@ -260,40 +257,34 @@ public class World extends Observable {
                         enemy.turnNorthWest();
                         break;
                 }
-                if (collideCheck(enemy.getX() + enemy.getdX(), enemy.getY() + enemy.getdY())) { // collide deadlyTie and
-                                                                                                // map border
+                // collide deadlyTie and map border
+                if (collideCheck(enemy.getX() + enemy.getdX(), enemy.getY() + enemy.getdY())) {
                     enemy.move();
-                    updateBulletDirection(enemy);
-                    enemy.reset();
-
+                    updateBulletDirection(enemy);   
                 }
+                enemy.reset();
             }
         }
     }
 
-    private void bustEnemyBullets(List<Enemy> enemyList, int Way, int fireRate, int immuneRate) {
+    private void bustEnemyBullets(List<Enemy> enemyList, int Way, int fireRate, int bulletImmuneRate) {
         if (tick % fireRate == 0) {
-            Random random = new Random();
             int life;
             for (Enemy enemy : enemyList) {
-                if (random.nextInt(immuneRate) == 0) {
-                    life = -1;
-                } else {
-                    life = 1;
-                }
+                int x = enemy.getX();
+                int y = enemy.getY();
+                int bx = enemy.getbX();
+                int by = enemy.getbY();
+                life = ((random.nextInt(bulletImmuneRate) == 0) ? -1 : 1);
                 for (int i = 0; i < Way; i++) {
                     if (i == 0) {
-                        enemyBullets.add(bulletPool.requestBullet(enemy.getX(), enemy.getY(), enemy.getbX(),
-                                enemy.getbY(), life));
+                        enemyBullets.add(bulletPool.requestBullet(x, y, bx, by, life));
                     } else if (i == 1) {
-                        enemyBullets.add(bulletPool.requestBullet(enemy.getX(), enemy.getY(), enemy.getbX() * -1,
-                                enemy.getbY() * -1, life));
+                        enemyBullets.add(bulletPool.requestBullet(x, y, bx * -1, by * -1, life));
                     } else if (i == 2) {
-                        enemyBullets.add(bulletPool.requestBullet(enemy.getX(), enemy.getY(), enemy.getbY(),
-                                enemy.getbX(), life));
+                        enemyBullets.add(bulletPool.requestBullet(x, y, by, bx, life));
                     } else if (i == 3) {
-                        enemyBullets.add(bulletPool.requestBullet(enemy.getX(), enemy.getY(), enemy.getbY() * -1,
-                                enemy.getbX() * -1, life));
+                        enemyBullets.add(bulletPool.requestBullet(x, y, by * -1, bx * -1, life));
                     }
 
                 }
@@ -302,9 +293,11 @@ public class World extends Observable {
     }
 
     private boolean collideCheck(int x, int y) {
+        // collide map border
         if (x <= -1 || x >= size || y <= -1 || y >= size) {
             return false;
         }
+        // collide deadlyTie
         for (DeadlyTie deadlyTie : deadlyTies) {
             if (x == deadlyTie.getX() && y == deadlyTie.getY()) {
                 return false;
@@ -319,6 +312,7 @@ public class World extends Observable {
             int py = player.getY();
             int dx = deadlyTie.getX();
             int dy = deadlyTie.getY();
+            // player in the area around deadlyTie
             if ((dx - 1 <= px && px <= dx + 1) && (dy - 1 <= py && py <= dy + 1)) {
                 if (playerImmuneTime == 0) {
                     player.updateLife(-1);
@@ -335,70 +329,51 @@ public class World extends Observable {
         }
     }
 
-    private void BulletHit() {
+    private void BulletHitEnemy(List<Enemy> enemyList) {
         List<Enemy> toRemoveEnemy = new ArrayList<Enemy>();
         List<Bullet> toRemoveBullet = new ArrayList<Bullet>();
+        for (Bullet b : playerBullets) {
+            for (Enemy enemy : enemyList) { // hit cTrooper
+                if (b.hit(enemy)) {
+                    enemy.updateLife(-1);
+                    if (enemy.getLife() <= 0) {
+                        score += 1;
+                        dropItem(enemy.getX(), enemy.getY(), 3);
+                        toRemoveEnemy.add(enemy);
+                    }
+                    toRemoveBullet.add(b);
+                    break;
+                }
+            }
+        }
+        enemyList.removeAll(toRemoveEnemy);
+        playerBullets.removeAll(toRemoveBullet);
+    }
+
+    private void BulletHitDeadlyTie(List<DeadlyTie> deadlyTieList) {
         List<DeadlyTie> toRemoveDeadlyTie = new ArrayList<DeadlyTie>();
-        // player bullets
-        for (Bullet bP : playerBullets) {
-            for (Enemy cTrooper : cTroopers) { // hit cTrooper
-                if (bP.hit(cTrooper)) {
-                    cTrooper.updateLife(-1);
-                    if (cTrooper.getLife() <= 0) {
-                        score += 1;
-                        addItem(cTrooper.getX(), cTrooper.getY(), 3);
-                        toRemoveEnemy.add(cTrooper);
-                    }
-                    toRemoveBullet.add(bP);
-                    break;
-                }
-            }
-            for (Enemy sTrooper : sTroopers) { // hit sTrooper
-                if (bP.hit(sTrooper)) {
-                    sTrooper.updateLife(-1);
-                    if (sTrooper.getLife() <= 0) {
-                        score += 1;
-                        addItem(sTrooper.getX(), sTrooper.getY(), 2);
-                        toRemoveEnemy.add(sTrooper);
-                    }
-                    toRemoveBullet.add(bP);
-                    break;
-                }
-            }
-            for (Enemy sManiac : sManiacs) { // hit sManiac
-                if (bP.hit(sManiac)) {
-                    sManiac.updateLife(-1);
-                    if (sManiac.getLife() <= 0) {
-                        score += 1;
-                        addItem(sManiac.getX(), sManiac.getY(), 1);
-                        toRemoveEnemy.add(sManiac);
-                    }
-                    toRemoveBullet.add(bP);
-                    break;
-                }
-            }
-            for (Enemy sManiacT2 : sManiacT2s) { // hit sManiacT2
-                if (bP.hit(sManiacT2)) {
-                    sManiacT2.updateLife(-1);
-                    if (sManiacT2.getLife() <= 0) {
-                        score += 1;
-                        addItem(sManiacT2.getX(), sManiacT2.getY(), 0);
-                        toRemoveEnemy.add(sManiacT2);
-                    }
-                    toRemoveBullet.add(bP);
-                    break;
-                }
-            }
-            for (DeadlyTie deadlyTie : deadlyTies) { // hit deadlyTie
-                if (bP.hit(deadlyTie)) {
+        List<Bullet> toRemoveBullet = new ArrayList<Bullet>();
+        for (Bullet b : playerBullets) {
+            for (DeadlyTie deadlyTie : deadlyTieList) {
+                if (b.hit(deadlyTie)) {
                     deadlyTie.updateLife(-1);
                     if (deadlyTie.getLife() <= 0) {
-                        addItem(deadlyTie.getX(), deadlyTie.getY(), 0);
+                        dropItem(deadlyTie.getX(), deadlyTie.getY(), 0);
                         toRemoveDeadlyTie.add(deadlyTie);
                     }
+                    toRemoveBullet.add(b);
                     break;
                 }
             }
+        }
+        deadlyTieList.removeAll(toRemoveDeadlyTie);
+        playerBullets.removeAll(toRemoveBullet);
+    }
+
+    private void BulletHit() {
+        List<Bullet> toRemoveBullet = new ArrayList<Bullet>();
+        // player bullets
+        for (Bullet bP : playerBullets) {
             for (Bullet bE : enemyBullets) { // hit enemy bullet
                 if (bE.getLife() > 0 && bP.hit(bE)) {
                     bE.updateLife(-1);
@@ -415,33 +390,28 @@ public class World extends Observable {
             }
         }
         // enemy bullets
-        for (Bullet bE : enemyBullets) {
-            if (bE.hit(player)) { // hit player
+        for (Bullet b : enemyBullets) {
+            if (b.hit(player)) { // hit player
                 if (playerImmuneTime == 0) {
                     player.updateLife(-1);
                     playerImmuneTime = immuneAfterHit;
                 }
-                toRemoveBullet.add(bE);
+                toRemoveBullet.add(b);
                 break;
             }
-            if (!collideCheck(bE.getX(), bE.getY())) { // hit deadlyTie and map border
-                toRemoveBullet.add(bE);
+            if (!collideCheck(b.getX(), b.getY())) { // hit deadlyTie and map border
+                toRemoveBullet.add(b);
                 break;
             }
         }
-        cTroopers.removeAll(toRemoveEnemy);
-        sTroopers.removeAll(toRemoveEnemy);
-        sManiacs.removeAll(toRemoveEnemy);
-        sManiacT2s.removeAll(toRemoveEnemy);
         playerBullets.removeAll(toRemoveBullet);
         enemyBullets.removeAll(toRemoveBullet);
-        deadlyTies.removeAll(toRemoveDeadlyTie);
     }
 
-    private void addItem(int x, int y, int weight) {
-        Random random = new Random();
-        if (random.nextInt(itemDropRate + weight) == 0) {
+    private void dropItem(int x, int y, int dropWeight) {
+        if (random.nextInt(itemDropRate + dropWeight) == 0) {
             items.add(new Item(x, y));
+            // random item type 0 1
             items.get(items.size() - 1).setObject(x, y, 0, -1, random.nextInt(2));
         }
     }
@@ -465,7 +435,7 @@ public class World extends Observable {
             playerImmuneTime -= 1;
         }
         if (player.getLife() == 0) {
-            notOver = false;
+            isOver = true;
         }
     }
 
@@ -522,6 +492,10 @@ public class World extends Observable {
         return sManiacT2s;
     }
 
+    public List<DeadlyTie> getDeadlyTies() {
+        return deadlyTies;
+    }
+
     public List<Item> getItems() {
         return items;
     }
@@ -535,11 +509,7 @@ public class World extends Observable {
     }
 
     public boolean isGameOver() {
-        return !notOver;
-    }
-
-    public List<DeadlyTie> getDeadlyTies() {
-        return deadlyTies;
+        return isOver;
     }
 
     public int getPlayerImmuneTime() {

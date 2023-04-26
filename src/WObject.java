@@ -16,7 +16,6 @@ public abstract class WObject {
     public WObject(int x, int y) {
         this.x = x;
         this.y = y;
-        // this.life = -1;
         this.direction = "N";
     }
 

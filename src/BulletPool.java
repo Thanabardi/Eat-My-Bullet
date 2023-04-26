@@ -6,7 +6,7 @@ public class BulletPool {
     private long time;
 
     public BulletPool() {
-        int size = 30;
+        int size = 40;
         for (int i = 0; i < size; i++) {
             bullets.add(new Bullet(-999, -999));
         }
