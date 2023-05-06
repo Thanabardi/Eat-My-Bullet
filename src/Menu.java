@@ -1,7 +1,7 @@
 import java.awt.*;
 
 public class Menu {
-    public  Rectangle playButton = new Rectangle(300, 250, 200, 50);
+    public Rectangle playButton = new Rectangle(300, 250, 200, 50);
     public int HighScore = 0;
     public long HighServivalTime = 0;
     private int size = 800;
@@ -16,8 +16,8 @@ public class Menu {
         Font fnt1 = new Font("arial", Font.BOLD, 30);
         g.setFont(fnt1);
         g.setColor(Color.white);
-        g.drawString("High Score : " + HighScore, 300, 150);
-        g.drawString("High Survival Time : " + HighServivalTime, 300, 200);
+        g.drawString("Current High Score : " + HighScore, 250, 150);
+        g.drawString("Survival Time : " + HighServivalTime, 300, 200);
         g.drawString("Play", playButton.x + 70, playButton.y + 35);
         g2d.draw(playButton);
     }
