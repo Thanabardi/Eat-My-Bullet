@@ -81,7 +81,6 @@ public class World extends Observable {
 
         player = new Player(size / 2, (int) Math.round(size / 1.5));
     }
-
     public void startGame() { // start game
         startTime = System.currentTimeMillis();
         random = new Random();

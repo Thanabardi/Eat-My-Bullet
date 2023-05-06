@@ -12,7 +12,6 @@ import java.util.Observer;
 public class Window extends JFrame implements Observer {
 
     private Renderer renderer;
-    private Gui gui;
     private World world;
     private int size = 800; // window size
     private int worldSize = 22;
@@ -21,16 +20,24 @@ public class Window extends JFrame implements Observer {
     private List<Integer> keyCode = new ArrayList<Integer>(); // storing keystroke
     private List<Integer> keyList = List.of(KeyEvent.VK_W, KeyEvent.VK_S, KeyEvent.VK_A, KeyEvent.VK_D,
             KeyEvent.VK_SPACE);
+    public static enum GameState{
+        MENU,
+        GAME,
+    };
+
+    public static GameState gameState = GameState.MENU;
+    private Menu menu;
 
     public Window() {
         super();
+        addMouseListener(new MouseInput());
         addKeyListener(new KeyController());
         setLayout(new BorderLayout());
+        menu = new Menu();
         renderer = new Renderer();
         add(renderer, BorderLayout.CENTER);
-        gui = new Gui();
-        add(gui, BorderLayout.SOUTH);
         world = new World(worldSize);
+        world.startGame();
         world.addObserver(this);
         setSize(size - 4, size + 55);
         setResizable(false);
@@ -40,19 +47,30 @@ public class Window extends JFrame implements Observer {
 
     @Override
     public void update(Observable o, Object arg) {
-        renderer.repaint();
-        moveCommand();
+        if (gameState == GameState.GAME) {
+            renderer.repaint();
+            moveCommand();
+        }
 
         if (world.isGameOver()) {
             JOptionPane.showMessageDialog(Window.this,
-                    "Replay?",
+                    "BACK TO MENU?",
                     "Game Over",
-                    JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.INFORMATION_MESSAGE
+                    );
+            gameState = GameState.MENU;
+            /// update High score
+            if (world.getScore() > menu.HighScore) {
+                menu.HighScore = world.getScore();
+            }
+            /// update High survival time
+            if (world.getElapsedTime() > menu.HighServivalTime) {
+                menu.HighServivalTime = world.getElapsedTime();
+            }
             keyCode.clear();
             world = new World(worldSize);
             world.addObserver(this);
             addKeyListener(new KeyController());
-            gui.startButton.setEnabled(true);
             // gui.pvpButton.setEnabled(true);
             repaint();
         }
@@ -128,22 +146,26 @@ public class Window extends JFrame implements Observer {
         @Override
         public void paint(Graphics g) {
             super.paint(g);
-            paintGrids(g);
-            // WObject
-            paintPlayerBullets(g);
-            paintEnemyBullets(g);
-            paintItems(g);
-            paintCTrooper(g);
-            paintSTrooper(g);
-            paintSManiac(g);
-            paintSManiacT2(g);
-            paintPlayer(g);
-            paintDeadlyTie(g);
-            // GUI
-            paintPlayerImmortal(g);
-            paintPlayerLife(g);
-            paintScore(g);
-            paintTimer(g);
+            if (gameState == GameState.MENU) {
+                menu.render(g);
+                paintPlayer(g);
+            } else if (gameState == GameState.GAME) {
+                paintGrids(g);
+                paintPlayerBullets(g);
+                paintEnemyBullets(g);
+                paintItems(g);
+                paintCTrooper(g);
+                paintSTrooper(g);
+                paintSManiac(g);
+                paintSManiacT2(g);
+                paintPlayer(g);
+                paintDeadlyTie(g);
+                // GUI
+                paintPlayerImmortal(g);
+                paintPlayerLife(g);
+                paintScore(g);
+                paintTimer(g);
+            }
         }
 
         private void paintGrids(Graphics g) {
@@ -372,27 +394,6 @@ public class Window extends JFrame implements Observer {
             }
         }
     }
-
-    class Gui extends JPanel {
-
-        private JButton startButton;
-
-        public Gui() {
-            setLayout(new FlowLayout());
-            startButton = new JButton("Start");
-            startButton.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    world.startGame();
-                    startButton.setEnabled(false);
-                    // startButton.setEnabled(false);
-                    Window.this.requestFocus();
-                }
-            });
-            add(startButton);
-        }
-    }
-
     class KeyController extends KeyAdapter {
         @Override
         public void keyPressed(KeyEvent e) {
