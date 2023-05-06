@@ -36,6 +36,7 @@ public class Window extends JFrame implements Observer {
         menu = new Menu();
         renderer = new Renderer();
         add(renderer, BorderLayout.CENTER);
+        ///Fix this later to start the world when gameState is in GAME state.
         world = new World(worldSize);
         world.startGame();
         world.addObserver(this);
