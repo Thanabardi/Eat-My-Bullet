@@ -73,6 +73,7 @@ public class Window extends JFrame implements Observer {
             world.addObserver(this);
             addKeyListener(new KeyController());
             // gui.pvpButton.setEnabled(true);
+            world.startGame();
             repaint();
         }
         waitFor(delayed);
