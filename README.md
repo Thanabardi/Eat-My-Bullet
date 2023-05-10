@@ -4,7 +4,7 @@ Eat My Bullets is a 2D top-down shooter game that features 2 kinds of bullets, 2
 
 ## Run the game
 - Open Eat-My-Bullet.jar    
-  *In case the image doesn't load properly, please make sure that the `sprite` folder is in the same directory.*
+  *In case the image doesn't load properly, please make sure that the `sprite` folder is in the same directory.*    
 ***or***
 - Run Window.java file in the src folder
 
