@@ -12,11 +12,14 @@ import java.util.Observer;
 public class Window extends JFrame implements Observer {
 
     private Renderer renderer;
-    private Gui gui;
+    private MainMenu mainMenu;
     private World world;
     private int size = 800; // window size
     private int worldSize = 22;
     private long delayed = 40; // game update delay
+
+    public int highScore = 0;
+    public long servivalTime = 0;
 
     private List<Integer> keyCode = new ArrayList<Integer>(); // storing keystroke
     private List<Integer> keyList = List.of(KeyEvent.VK_W, KeyEvent.VK_S, KeyEvent.VK_A, KeyEvent.VK_D,
@@ -26,16 +29,15 @@ public class Window extends JFrame implements Observer {
         super();
         addKeyListener(new KeyController());
         setLayout(new BorderLayout());
-        renderer = new Renderer();
-        add(renderer, BorderLayout.CENTER);
-        gui = new Gui();
-        add(gui, BorderLayout.SOUTH);
-        world = new World(worldSize);
-        world.addObserver(this);
-        setSize(size - 4, size + 55);
+        setSize(size + 10, size + 30);
         setResizable(false);
         setAlwaysOnTop(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        mainMenu = new MainMenu();
+        add(mainMenu, BorderLayout.CENTER);
+        world = new World(worldSize);
+        world.addObserver(this);
+        addKeyListener(new KeyController());
     }
 
     @Override
@@ -44,17 +46,26 @@ public class Window extends JFrame implements Observer {
         moveCommand();
 
         if (world.isGameOver()) {
+            /// update High score
+            if (world.getScore() > highScore) {
+                highScore = world.getScore();
+                servivalTime = world.getElapsedTime();
+            }
             JOptionPane.showMessageDialog(Window.this,
-                    "Replay?",
                     "Game Over",
+                    "",
                     JOptionPane.INFORMATION_MESSAGE);
+            Window.this.remove(renderer);
+            Window.this.pack();
+            mainMenu = new MainMenu();
+            Window.this.add(mainMenu, BorderLayout.CENTER);
+            Window.this.setSize(size + 10, size + 30);
+            revalidate();
+            repaint();
             keyCode.clear();
             world = new World(worldSize);
             world.addObserver(this);
             addKeyListener(new KeyController());
-            gui.startButton.setEnabled(true);
-            // gui.pvpButton.setEnabled(true);
-            repaint();
         }
         waitFor(delayed);
     }
@@ -128,6 +139,7 @@ public class Window extends JFrame implements Observer {
         @Override
         public void paint(Graphics g) {
             super.paint(g);
+            g.setFont(new Font("arial", Font.PLAIN, 20));
             paintGrids(g);
             // WObject
             paintPlayerBullets(g);
@@ -147,7 +159,7 @@ public class Window extends JFrame implements Observer {
         }
 
         private void paintGrids(Graphics g) {
-            g.setColor(Color.decode("#1E1E1E"));
+            g.setColor(Color.decode("#24201C"));
             g.fillRect(0, 0, size, size);
         }
 
@@ -352,7 +364,7 @@ public class Window extends JFrame implements Observer {
             int playerLife = world.getPlayer().getLife();
             g.setColor(Color.white);
             if (!world.isGameOver()) {
-                g.drawString("Lives: " + playerLife, 10, size - 40);
+                g.drawString("Lives: " + playerLife, 10, size - 20);
             }
         }
 
@@ -360,7 +372,7 @@ public class Window extends JFrame implements Observer {
             int score = world.getScore();
             g.setColor(Color.white);
             if (!world.isGameOver()) {
-                g.drawString("Score: " + score, (size / 2) - 30, size - 40);
+                g.drawString("Score: " + score, (size / 2) - 30, size - 20);
             }
         }
 
@@ -368,28 +380,64 @@ public class Window extends JFrame implements Observer {
             long time = world.getElapsedTime();
             g.setColor(Color.white);
             if (!world.isGameOver()) {
-                g.drawString("Survival Time: " + time / 60 + ":" + time % 60, size - 140, size - 40);
+                g.drawString("Survival Time: " + time / 60 + ":" + time % 60, size - 180, size - 20);
             }
         }
     }
 
-    class Gui extends JPanel {
+    class MainMenu extends JPanel {
 
         private JButton startButton;
+        public int HighScore = 0;
+        public long HighServivalTime = 0;
 
-        public Gui() {
-            setLayout(new FlowLayout());
+        public MainMenu() {
+            setLayout(null);
+            setBackground(Color.decode("#24201C"));
             startButton = new JButton("Start");
+            startButton.setBackground(Color.decode("#24201C"));
+            startButton.setBorderPainted(false);
+            startButton.setForeground(Color.WHITE);
+            startButton.setFont(new Font("arial", Font.PLAIN, 40));
+            startButton.setBounds(320, 350, 150, 100);
+            startButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
             startButton.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    world.startGame();
-                    startButton.setEnabled(false);
-                    // startButton.setEnabled(false);
                     Window.this.requestFocus();
+                    Window.this.remove(mainMenu);
+                    Window.this.pack();
+                    renderer = new Renderer();
+                    Window.this.add(renderer, BorderLayout.CENTER);
+                    Window.this.setSize(size + 10, size + 30);
+                    revalidate();
+                    repaint();
+                    world.startGame();
                 }
             });
             add(startButton);
+        }
+
+        @Override
+        public void paint(Graphics g) {
+            super.paint(g);
+            paintMenu(g);
+        }
+
+        private void paintMenu(Graphics g) {
+            g.setColor(Color.decode("#24201C"));
+            g.fillRect(0, 0, size, size);
+            Font fnt0 = new Font("arial", Font.BOLD, 50);
+            g.setFont(fnt0);
+            g.setColor(Color.white);
+            g.drawString("Eat My Bullet", 250, 200);
+            if (highScore > 0) {
+                Font fnt1 = new Font("arial", Font.PLAIN, 25);
+                g.setFont(fnt1);
+                g.setColor(Color.white);
+                g.drawString("Current High Score " + highScore, 280, 250);
+                g.drawString("Survival Time " + servivalTime / 60 + ":" + servivalTime % 60, 300, 300);
+            }
         }
     }
 
